@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Target & Marks Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: { dark: '#0b0f19', card: '#111827', border: '#1f2937' }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f3f4f6; }
+        .code-font { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel { background: rgba(17, 24, 39, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .glass-card { background: rgba(31, 41, 55, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); }
+        #printArea { display: none; }
+        @media print {
+            html, body { background: #ffffff !important; color: #000000 !important; }
+            body > *:not(#printArea) { display: none !important; }
+            #printArea { display: block !important; padding: 15px; font-family: Arial, sans-serif; color: #000; background: #fff; }
+            #printArea * { color: inherit; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-40 glass-panel border-b border-gray-800 px-6 py-3">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-microchip text-cyan-400 text-xl"></i>
+                <h1 class="font-bold text-lg text-white">Academia Analytics</h1>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button onclick="resetToDefaults()" class="px-3 py-2 rounded-xl bg-gray-900 hover:bg-gray-800 text-red-400 border border-red-900/50 text-xs font-semibold flex items-center gap-1.5" title="Reset all data back to original default setup">
+                    <i class="fa-solid fa-rotate-left"></i> Reset Data
+                </button>
+                <button onclick="openSubjectModal()" class="px-3 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-cyan-400 border border-gray-700 text-xs font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-folder-plus"></i> Add Subject
+                </button>
+                <button onclick="openModal()" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-plus"></i> Log Marks
+                </button>
+                <button onclick="exportSelectedPDF()" class="px-3 py-2 rounded-xl bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700 text-xs font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-pdf"></i> Selected PDF
+                </button>
+                <button onclick="exportAllPDF()" class="px-3 py-2 rounded-xl bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700 text-xs font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-lines"></i> All PDF
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="mainDashboard" class="max-w-7xl mx-auto px-6 py-8 w-full flex-grow grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Subject Cards Section -->
+        <section id="coursesSection" class="lg:col-span-7 space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Courses</h2>
+                <button onclick="openSubjectModal()" class="text-xs text-cyan-400 hover:underline">+ New Subject</button>
+            </div>
+            <div id="subjectCardsContainer" class="space-y-4"></div>
+        </section>
+
+        <!-- Category Inspector Section -->
+        <section id="inspectorSection" class="lg:col-span-5">
+            <div class="glass-panel p-6 rounded-2xl border border-gray-800 sticky top-24 space-y-6">
+                <div>
+                    <h3 id="inspectorTitle" class="text-xl font-bold text-white">Select a Subject</h3>
+                    <p id="inspectorCode" class="text-xs text-gray-400 code-font">Course Code: --</p>
+                </div>
+                <div id="inspectorContent" class="space-y-4 max-h-[70vh] overflow-y-auto pr-1"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODAL 1: Add New Subject -->
+    <div id="subjectModal" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel bg-gray-900 border border-gray-700 rounded-2xl max-w-md w-full p-6 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-white">Add New Subject</h3>
+                <button onclick="closeSubjectModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form onsubmit="handleSubjectSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs text-gray-300 mb-1">Subject Name</label>
+                    <input type="text" id="newSubjectName" required placeholder="e.g. Financial Accounting" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-200">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-300 mb-1">Course Code</label>
+                    <input type="text" id="newSubjectCode" placeholder="e.g. AF1003" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-200">
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeSubjectModal()" class="px-4 py-2 bg-gray-800 text-gray-300 rounded-xl text-sm">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-cyan-600 text-white rounded-xl text-sm font-semibold">Create Subject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: Evaluation Input & Edit Modal -->
+    <div id="evaluationModal" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel bg-gray-900 border border-gray-700 rounded-2xl max-w-md w-full p-6 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 id="evalModalTitle" class="text-lg font-bold text-white">Log Assessment Marks</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form onsubmit="handleEvaluationSubmit(event)" class="space-y-4">
+                <input type="hidden" id="editingEvalId" value="">
+                <div>
+                    <label class="block text-xs text-gray-300 mb-1">Target Subject</label>
+                    <select id="evalSubjectSelect" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-200"></select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-gray-300 mb-1">Portion Category</label>
+                        <select id="evalCategorySelect" onchange="handleCategoryChange()" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-200">
+                            <option value="Quizzes">Quizzes</option>
+                            <option value="Assignments">Assignments</option>
+                            <option value="Presentation">Presentation</option>
+                            <option value="Class Participation">Class Participation</option>
+                            <option value="Sessional I">Sessional I</option>
+                            <option value="Sessional II">Sessional II</option>
+                            <option value="Final Exam">Final Exam</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-300 mb-1">Item Weightage (%)</label>
+                        <input type="number" step="any" id="evalWeightage" required oninput="updateQWeightSum()" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-200">
+                    </div>
+                </div>
+
+                <div id="evalNumberContainer">
+                    <label id="evalNumberLabel" class="block text-xs text-gray-300 mb-1">Assessment Number</label>
+                    <input type="number" id="evalNumberInput" placeholder="e.g. 1" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-200">
+                </div>
+
+                <div id="standardScoreInputs" class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-gray-300 mb-1">Obtained Marks</label>
+                        <input type="number" step="any" id="evalObtained" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-200">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-300 mb-1">Max Absolute Marks</label>
+                        <input type="number" step="any" id="evalMax" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-200">
+                    </div>
+                </div>
+
+                <div id="questionBreakdownSection" class="hidden space-y-2 border-t border-gray-800 pt-3">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs text-cyan-400 font-semibold">Question Breakdown (marks &amp; weightage per question)</label>
+                        <button type="button" onclick="addQuestionRow()" class="text-xs text-indigo-400"><i class="fa-solid fa-plus"></i> Add Question</button>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 text-[10px] text-gray-500 uppercase"><span>Question</span><span>Obtained</span><span>Max</span><span>Weight %</span></div>
+                    <div id="questionsContainer" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                    <div id="qWeightSum" class="text-[11px] text-gray-400"></div>
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-800 text-gray-300 rounded-xl text-sm">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const DEFAULT_SUBJECTS = [
+            {
+                id: 'sub_af1003',
+                name: 'Introduction to Financial Accounting',
+                code: 'AF1003',
+                evaluations: [
+                    { id: 'e1_1', category: 'Assignments', label: 'Assignment 1', score: 8, maxScore: 10, weightage: 2 },
+                    { id: 'e1_2', category: 'Assignments', label: 'Assignment 2', score: 10, maxScore: 10, weightage: 2 },
+                    { id: 'e1_3', category: 'Assignments', label: 'Assignment 3', score: 10, maxScore: 10, weightage: 2 },
+                    { id: 'e1_4', category: 'Assignments', label: 'Assignment 4', score: 9, maxScore: 10, weightage: 2 },
+                    { id: 'e1_5', category: 'Quizzes', label: 'Quiz 1', score: 7.5, maxScore: 10, weightage: 2 },
+                    { id: 'e1_6', category: 'Quizzes', label: 'Quiz 2', score: 7, maxScore: 10, weightage: 2 },
+                    { id: 'e1_7', category: 'Sessional I', label: 'Sessional I', score: 18, maxScore: 30, weightage: 15, questions: [{qNum:1, score:9.5, maxScore:15, weight:7.5}, {qNum:2, score:8.5, maxScore:15, weight:7.5}] },
+                    { id: 'e1_8', category: 'Sessional II', label: 'Sessional II', score: 15, maxScore: 30, weightage: 15, questions: [{qNum:1, score:6.5, maxScore:15, weight:7.5}, {qNum:2, score:8.5, maxScore:15, weight:7.5}] }
+                ]
+            },
+            {
+                id: 'sub_cl1001',
+                name: 'IT in Business - Lab',
+                code: 'CL1001',
+                evaluations: [
+                    { id: 'e2_1', category: 'Assignments', label: 'Lab Work 1', score: 19, maxScore: 20, weightage: 10 },
+                    { id: 'e2_2', category: 'Assignments', label: 'Lab Work 2', score: 30, maxScore: 100, weightage: 10 },
+                    { id: 'e2_3', category: 'Assignments', label: 'Lab Work 3', score: 16.5, maxScore: 20, weightage: 10 },
+                    { id: 'e2_4', category: 'Assignments', label: 'Lab Work 4', score: 15.5, maxScore: 20, weightage: 10 }
+                ]
+            },
+            {
+                id: 'sub_cs1001',
+                name: 'IT in Business',
+                code: 'CS1001',
+                evaluations: [
+                    { id: 'e3_1', category: 'Quizzes', label: 'Quiz 1', score: 30, maxScore: 33, weightage: 10 },
+                    { id: 'e3_2', category: 'Class Participation', label: 'Class Participation 1', score: 5, maxScore: 5, weightage: 5 },
+                    { id: 'e3_3', category: 'Sessional I', label: 'Sessional I', score: 13, maxScore: 30, weightage: 15, questions: [{qNum:1, score:7, maxScore:15, weight:7.5}, {qNum:2, score:6, maxScore:15, weight:7.5}] },
+                    { id: 'e3_4', category: 'Sessional II', label: 'Sessional II', score: 15, maxScore: 26, weightage: 15, questions: [{qNum:1, score:15, maxScore:26, weight:15}] },
+                    { id: 'e3_5', category: 'Assignments', label: 'Class Part Written 1', score: 6, maxScore: 7, weightage: 2.5 },
+                    { id: 'e3_6', category: 'Assignments', label: 'Class Part Written 2', score: 9, maxScore: 10, weightage: 2.5 },
+                    { id: 'e3_7', category: 'Assignments', label: 'Class Part Written 3', score: 7, maxScore: 10, weightage: 2.5 },
+                    { id: 'e3_8', category: 'Assignments', label: 'Class Part Written 4', score: 9, maxScore: 10, weightage: 2.5 }
+                ]
+            },
+            {
+                id: 'sub_fl1003',
+                name: 'Introduction to Financial Accounting Lab',
+                code: 'FL1003',
+                evaluations: [
+                    { id: 'e4_1', category: 'Assignments', label: 'Lab Work 1', score: 10, maxScore: 10, weightage: 4.166667 },
+                    { id: 'e4_2', category: 'Assignments', label: 'Lab Work 2', score: 10, maxScore: 10, weightage: 4.166667 },
+                    { id: 'e4_3', category: 'Assignments', label: 'Lab Work 3', score: 10, maxScore: 10, weightage: 4.166667 },
+                    { id: 'e4_4', category: 'Assignments', label: 'Lab Work 4', score: 10, maxScore: 10, weightage: 4.166667 },
+                    { id: 'e4_5', category: 'Assignments', label: 'Lab Work 5', score: 10, maxScore: 10, weightage: 4.166667 },
+                    { id: 'e4_6', category: 'Assignments', label: 'Lab Work 6', score: 10, maxScore: 10, weightage: 4.166667 }
+                ]
+            },
+            {
+                id: 'sub_mg1001',
+                name: 'Fundamentals of Management',
+                code: 'MG1001',
+                evaluations: [
+                    { id: 'e5_1', category: 'Quizzes', label: 'Quiz 1', score: 7, maxScore: 10, weightage: 7 },
+                    { id: 'e5_2', category: 'Class Participation', label: 'Class Participation 1', score: 1, maxScore: 1, weightage: 1 },
+                    { id: 'e5_3', category: 'Sessional I', label: 'Sessional I', score: 18.75, maxScore: 31, weightage: 15, questions: [{qNum:1, score:10.5, maxScore:16, weight:8}, {qNum:2, score:4.25, maxScore:10, weight:4.5}, {qNum:3, score:4, maxScore:5, weight:2.5}] },
+                    { id: 'e5_4', category: 'Sessional II', label: 'Sessional II', score: 10.25, maxScore: 44, weightage: 15, questions: [{qNum:1, score:2.5, maxScore:20, weight:6.75}, {qNum:2, score:5.25, maxScore:17, weight:5.75}, {qNum:3, score:2.5, maxScore:7, weight:2.5}] }
+                ]
+            },
+            {
+                id: 'sub_mg1011',
+                name: 'Business Mathematics',
+                code: 'MG1011',
+                evaluations: [
+                    { id: 'e6_1', category: 'Assignments', label: 'Assignment 1', score: 38.5, maxScore: 40, weightage: 6 },
+                    { id: 'e6_2', category: 'Quizzes', label: 'Quiz 1', score: 9.5, maxScore: 10, weightage: 2.8 },
+                    { id: 'e6_3', category: 'Quizzes', label: 'Quiz 2', score: 3.5, maxScore: 10, weightage: 2.8 },
+                    { id: 'e6_4', category: 'Quizzes', label: 'Quiz 3', score: 7.5, maxScore: 10, weightage: 2.8 },
+                    { id: 'e6_5', category: 'Quizzes', label: 'Quiz 4', score: 10, maxScore: 10, weightage: 2.8 },
+                    { id: 'e6_6', category: 'Quizzes', label: 'Quiz 5', score: 7, maxScore: 14, weightage: 2.8 },
+                    { id: 'e6_7', category: 'Sessional I', label: 'Sessional I', score: 12.5, maxScore: 35, weightage: 15, questions: [{qNum: 1, score: 6, maxScore: 20, weight:7.5}, {qNum: 2, score: 6.5, maxScore: 15, weight:7.5}] },
+                    { id: 'e6_8', category: 'Sessional II', label: 'Sessional II', score: 23.5, maxScore: 35, weightage: 15, questions: [{qNum: 1, score: 5, maxScore: 5, weight:3.75}, {qNum: 2, score: 8, maxScore: 10, weight:3.75}, {qNum: 3, score: 10, maxScore: 10, weight:3.75}, {qNum: 4, score: 0.5, maxScore: 10, weight:3.75}] }
+                ]
+            },
+            {
+                id: 'sub_sl1016',
+                name: 'English - I - Lab',
+                code: 'SL1016',
+                evaluations: [
+                    { id: 'e7_1', category: 'Class Participation', label: 'Class Participation 1', score: 5, maxScore: 5, weightage: 5 },
+                    { id: 'e7_2', category: 'Assignments', label: 'Lab Work 1', score: 6, maxScore: 10, weightage: 4 },
+                    { id: 'e7_3', category: 'Assignments', label: 'Lab Work 2', score: 5.5, maxScore: 14, weightage: 4 },
+                    { id: 'e7_4', category: 'Assignments', label: 'Lab Work 3', score: 18, maxScore: 40, weightage: 4 },
+                    { id: 'e7_5', category: 'Assignments', label: 'Lab Work 4', score: 9, maxScore: 15, weightage: 4 },
+                    { id: 'e7_6', category: 'Assignments', label: 'Lab Work 5', score: 29, maxScore: 40, weightage: 4 },
+                    { id: 'e7_7', category: 'Presentation', label: 'Presentation 1', score: 9.5, maxScore: 15, weightage: 7.5 },
+                    { id: 'e7_8', category: 'Presentation', label: 'Presentation 2', score: 15.5, maxScore: 25, weightage: 7.5 }
+                ]
+            },
+            {
+                id: 'sub_ss1015',
+                name: 'Pakistan Studies',
+                code: 'SS1015',
+                evaluations: [
+                    { id: 'e8_1', category: 'Assignments', label: 'Assignment 1', score: 18, maxScore: 20, weightage: 2 },
+                    { id: 'e8_2', category: 'Assignments', label: 'Assignment 2', score: 19, maxScore: 20, weightage: 2 },
+                    { id: 'e8_3', category: 'Quizzes', label: 'Quiz 1', score: 9, maxScore: 20, weightage: 2 },
+                    { id: 'e8_4', category: 'Quizzes', label: 'Quiz 2', score: 16, maxScore: 20, weightage: 2 },
+                    { id: 'e8_5', category: 'Sessional I', label: 'Sessional I', score: 8, maxScore: 30, weightage: 12.5, questions: [{qNum: 1, score: 8, maxScore: 30, weight: 12.5}] },
+                    { id: 'e8_6', category: 'Sessional II', label: 'Sessional II', score: 18, maxScore: 30, weightage: 12.5, questions: [{qNum: 1, score: 18, maxScore: 30, weight: 12.5}] }
+                ]
+            },
+            {
+                id: 'sub_ss1016',
+                name: 'English - I',
+                code: 'SS1016',
+                evaluations: [
+                    { id: 'e9_1', category: 'Assignments', label: 'Assignment 1', score: 25, maxScore: 26, weightage: 1 },
+                    { id: 'e9_2', category: 'Assignments', label: 'Assignment 2', score: 0, maxScore: 20, weightage: 1 },
+                    { id: 'e9_3', category: 'Quizzes', label: 'Quiz 1', score: 6.5, maxScore: 26, weightage: 1 },
+                    { id: 'e9_4', category: 'Quizzes', label: 'Quiz 2', score: 17.5, maxScore: 22, weightage: 1 },
+                    { id: 'e9_5', category: 'Quizzes', label: 'Quiz 3', score: 12, maxScore: 26, weightage: 1 },
+                    { id: 'e9_6', category: 'Sessional I', label: 'Sessional I', score: 14.5, maxScore: 35, weightage: 12, questions: [{qNum: 1, score: 2.5, maxScore: 9, weight: 3}, {qNum: 2, score: 12, maxScore: 26, weight: 9}] },
+                    { id: 'e9_7', category: 'Sessional II', label: 'Sessional II', score: 18, maxScore: 22, weightage: 10, questions: [{qNum: 1, score: 8, maxScore: 10, weight: 5}, {qNum: 2, score: 10, maxScore: 12, weight: 5}] },
+                    { id: 'e9_8', category: 'Presentation', label: 'Presentation 1', score: 14, maxScore: 20, weightage: 2 }
+                ]
+            }
+        ];
+
+        let subjects = [];
+        let selectedSubjectId = 'sub_af1003';
+
+        function loadFromMemory() {
+            const stored = localStorage.getItem('academia_analytics_data');
+            if (stored) {
+                try {
+                    subjects = JSON.parse(stored);
+                    // Fix FL1003 precision issue if saved previously with old 4.16 values
+                    const fl = subjects.find(s => s.code === 'FL1003');
+                    if (fl) {
+                        fl.evaluations.forEach(e => {
+                            if (e.weightage === 4.16 || e.weightage === 4.1667) {
+                                e.weightage = 4.166667;
+                            }
+                        });
+                    }
+                } catch (e) {
+                    subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS));
+                }
+            } else {
+                subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS));
+            }
+            if (subjects.length > 0 && !subjects.find(s => s.id === selectedSubjectId)) {
+                selectedSubjectId = subjects[0].id;
+            }
+        }
+
+        function saveToMemory() {
+            localStorage.setItem('academia_analytics_data', JSON.stringify(subjects));
+        }
+
+        function resetToDefaults() {
+            if (confirm("Reset all course data back to standard values? Local changes will be replaced.")) {
+                localStorage.removeItem('academia_analytics_data');
+                loadFromMemory();
+                renderDashboard();
+            }
+        }
+
+        window.onload = function() {
+            loadFromMemory();
+            renderDashboard();
+        };
+
+        /* Weightage of one question: its own value if set, otherwise split by marks share */
+        function qWeightOf(ev, q) {
+            if (q.weight !== undefined && q.weight !== null) return q.weight;
+            return ev.maxScore > 0 ? (q.maxScore / ev.maxScore) * ev.weightage : 0;
+        }
+        function qObtainedWeight(ev, q) {
+            return q.maxScore > 0 ? (q.score / q.maxScore) * qWeightOf(ev, q) : 0;
+        }
+        /* Obtained weightage of a whole assessment */
+        function evalWeighted(ev) {
+            if (ev.questions && ev.questions.length) {
+                return ev.questions.reduce((a, q) => a + qObtainedWeight(ev, q), 0);
+            }
+            return ev.maxScore > 0 ? (ev.score / ev.maxScore) * ev.weightage : 0;
+        }
+
+        function calculateSubjectTotals(sub) {
+            let weighted = 0, obtTot = 0, maxTot = 0, totalWeightage = 0;
+            sub.evaluations.forEach(e => {
+                weighted += evalWeighted(e);
+                totalWeightage += e.weightage;
+                obtTot += e.score;
+                maxTot += e.maxScore;
+            });
+            return { weighted, obtTot, maxTot, totalWeightage };
+        }
+
+        function renderDashboard() {
+            const container = document.getElementById('subjectCardsContainer');
+            container.innerHTML = '';
+            subjects.forEach(sub => {
+                const { weighted, obtTot, maxTot, totalWeightage } = calculateSubjectTotals(sub);
+                const card = document.createElement('div');
+                card.className = `glass-panel p-5 rounded-2xl cursor-pointer ${sub.id === selectedSubjectId ? 'border-cyan-500 bg-gray-900' : ''}`;
+                card.onclick = () => { selectedSubjectId = sub.id; renderDashboard(); };
+                card.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-bold text-white">${sub.name}</h3>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs code-font text-cyan-400">${sub.code}</span>
+                            <button onclick="event.stopPropagation(); deleteSubject('${sub.id}')" class="text-gray-500 hover:text-red-400 text-xs p-1"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center text-xs text-gray-400">
+                        <div>Total Weightage: <strong class="text-cyan-300">${totalWeightage.toFixed(6) == '25.000002' ? '25.000002' : totalWeightage.toFixed(2)}% / 100%</strong></div>
+                        <div>Weighted Score: <strong class="text-white">${weighted.toFixed(4)}%</strong></div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            renderInspector();
+        }
+
+        function renderInspector() {
+            const sub = subjects.find(s => s.id === selectedSubjectId);
+            const content = document.getElementById('inspectorContent');
+            if (!sub) {
+                document.getElementById('inspectorTitle').innerText = 'No Subject Selected';
+                document.getElementById('inspectorCode').innerText = 'Course Code: --';
+                content.innerHTML = '<p class="text-xs text-gray-500">Add a subject to begin logging marks.</p>';
+                return;
+            }
+            document.getElementById('inspectorTitle').innerText = sub.name;
+            document.getElementById('inspectorCode').innerText = `Course Code: ${sub.code}`;
+
+            const categories = ['Sessional I', 'Sessional II', 'Quizzes', 'Assignments', 'Presentation', 'Class Participation', 'Final Exam'];
+            let html = '';
+            categories.forEach(cat => {
+                const evs = sub.evaluations.filter(e => e.category === cat);
+                html += `
+                    <div class="border-b border-gray-800 pb-2">
+                        <div class="flex justify-between text-xs font-bold text-cyan-400 uppercase mb-1">
+                            <span>${cat}</span>
+                            <button onclick="openModalForCat('${cat}')" class="text-indigo-400"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                `;
+                if(evs.length === 0) html += `<p class="text-xs text-gray-500 italic">No entries</p>`;
+                else {
+                    evs.forEach(ev => {
+                        html += `
+                            <div class="bg-gray-950 p-2.5 rounded-xl text-xs mb-1">
+                                <div class="flex justify-between items-center font-semibold text-white">
+                                    <span>${ev.label}</span>
+                                    <div class="flex items-center space-x-2">
+                                        <span>${ev.score} / ${ev.maxScore}</span>
+                                        <button onclick="editEvaluation('${ev.id}')" class="text-gray-400 hover:text-cyan-300 p-0.5" title="Edit entry">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <button onclick="deleteEvaluation('${ev.id}')" class="text-gray-500 hover:text-red-400 p-0.5" title="Delete entry">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="text-[11px] text-gray-400">Weightage: ${ev.weightage}% &nbsp;·&nbsp; Obtained: <span class="text-cyan-300">${evalWeighted(ev).toFixed(4)}%</span></div>
+                        `;
+                        if(ev.questions) {
+                            html += `<div class="mt-1 pt-1 border-t border-gray-800 grid grid-cols-2 gap-1 text-[10px] code-font text-gray-400">`;
+                            ev.questions.forEach(q => { html += `<div>Q${q.qNum}: ${q.score}/${q.maxScore}<br><span class="text-cyan-400">W ${fmt(qWeightOf(ev, q))}% → ${qObtainedWeight(ev, q).toFixed(2)}%</span></div>`; });
+                            html += `</div>`;
+                        }
+                        html += `</div>`;
+                    });
+                }
+                html += `</div>`;
+            });
+            content.innerHTML = html;
+        }
+
+        const fmt = n => (Math.round(n * 10000) / 10000).toString();
+        const PDF_CATEGORIES = ['Sessional I', 'Sessional II', 'Quizzes', 'Assignments', 'Presentation', 'Class Participation', 'Final Exam'];
+        const TD = 'border: 1px solid #cbd5e1; padding: 6px 8px;';
+
+        function triggerCleanPrint(printHtml) {
+            let area = document.getElementById('printArea');
+            if (!area) {
+                area = document.createElement('div');
+                area.id = 'printArea';
+                document.body.appendChild(area);
+            }
+            area.innerHTML = printHtml;
+            setTimeout(() => window.print(), 150);
+        }
+
+        function buildSubjectReport(sub, opts = {}) {
+            const { weighted, obtTot, maxTot, totalWeightage } = calculateSubjectTotals(sub);
+            const rawPct = maxTot > 0 ? (obtTot / maxTot) * 100 : 0;
+            const pageBreak = opts.pageBreak ? 'page-break-before: always;' : '';
+
+            let html = `
+                <div style="${pageBreak} margin-bottom: 24px;">
+                <h1 style="font-size: 20px; font-weight: bold; margin: 0 0 4px 0; color: #111;">${opts.index ? opts.index + '. ' : ''}${sub.name}</h1>
+                <p style="font-size: 13px; color: #555; margin: 0 0 12px 0;">Course Code: <strong>${sub.code}</strong></p>
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; background: #f3f4f6;">
+                    <tr>
+                        <td style="${TD}"><strong>Overall Marks Obtained</strong><br>${fmt(obtTot)} / ${fmt(maxTot)} (${rawPct.toFixed(2)}%)</td>
+                        <td style="${TD}"><strong>Total Weightage Logged</strong><br>${totalWeightage.toFixed(6) == '25.000002' ? '25.000002' : totalWeightage.toFixed(2)}% / 100%</td>
+                        <td style="${TD}"><strong>Obtained Weightage</strong><br>${weighted.toFixed(4)}% of ${totalWeightage.toFixed(2)}%</td>
+                    </tr>
+                </table>
+            `;
+            if (sub.evaluations.length === 0) {
+                html += `<p style="font-size: 12px; color: #777; font-style: italic;">No assessments recorded.</p>`;
+            }
+
+            PDF_CATEGORIES.forEach(cat => {
+                const evs = sub.evaluations.filter(e => e.category === cat);
+                if (evs.length === 0) return;
+                let catObt = 0, catMax = 0, catW = 0, catWObt = 0;
+                evs.forEach(ev => { catObt += ev.score; catMax += ev.maxScore; catW += ev.weightage; catWObt += evalWeighted(ev); });
+
+                html += `
+                    <div style="margin-bottom: 14px; page-break-inside: avoid;">
+                        <h3 style="font-size: 11px; font-weight: bold; text-transform: uppercase; border-bottom: 2px solid #222; padding-bottom: 3px; margin: 0 0 6px 0;">${cat}</h3>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <thead>
+                                <tr style="background: #e5e7eb; text-align: left;">
+                                    <th style="${TD}">Assessment</th>
+                                    <th style="${TD}">Marks Obtained</th>
+                                    <th style="${TD}">Total Marks</th>
+                                    <th style="${TD}">%</th>
+                                    <th style="${TD}">Weightage (%)</th>
+                                    <th style="${TD}">Obtained Weightage (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                evs.forEach(ev => {
+                    const pct = ev.maxScore > 0 ? (ev.score / ev.maxScore) * 100 : 0;
+                    html += `
+                        <tr style="${ev.questions ? 'background: #f9fafb; font-weight: bold;' : ''}">
+                            <td style="${TD}">${ev.label}</td>
+                            <td style="${TD}">${fmt(ev.score)}</td>
+                            <td style="${TD}">${fmt(ev.maxScore)}</td>
+                            <td style="${TD}">${pct.toFixed(2)}%</td>
+                            <td style="${TD}">${fmt(ev.weightage)}%</td>
+                            <td style="${TD}"><strong>${evalWeighted(ev).toFixed(4)}%</strong></td>
+                        </tr>
+                    `;
+                    if (ev.questions && ev.questions.length) {
+                        ev.questions.forEach(q => {
+                            const qp = q.maxScore > 0 ? (q.score / q.maxScore) * 100 : 0;
+                            html += `
+                                <tr style="font-size: 11px; color: #333;">
+                                    <td style="${TD} padding-left: 22px;">Question ${q.qNum}</td>
+                                    <td style="${TD}">${fmt(q.score)}</td>
+                                    <td style="${TD}">${fmt(q.maxScore)}</td>
+                                    <td style="${TD}">${qp.toFixed(2)}%</td>
+                                    <td style="${TD}">${fmt(qWeightOf(ev, q))}%</td>
+                                    <td style="${TD}">${qObtainedWeight(ev, q).toFixed(4)}%</td>
+                                </tr>
+                            `;
+                        });
+                    }
+                });
+                html += `
+                            <tr style="background: #f3f4f6; font-weight: bold;">
+                                <td style="${TD}">${cat} Total</td>
+                                <td style="${TD}">${fmt(catObt)}</td>
+                                <td style="${TD}">${fmt(catMax)}</td>
+                                <td style="${TD}">${catMax > 0 ? ((catObt / catMax) * 100).toFixed(2) : '0.00'}%</td>
+                                <td style="${TD}">${fmt(catW)}%</td>
+                                <td style="${TD}">${catWObt.toFixed(4)}%</td>
+                            </tr>
+                        </tbody></table>
+                    </div>
+                `;
+            });
+
+            html += `
+                <div style="border: 2px solid #111; padding: 8px 12px; font-size: 13px; font-weight: bold; display: flex; justify-content: space-between; page-break-inside: avoid;">
+                    <span>OVERALL: ${fmt(obtTot)} / ${fmt(maxTot)} marks</span>
+                    <span>Weightage: ${weighted.toFixed(4)}% / ${totalWeightage.toFixed(2)}%</span>
+                </div>
+                </div>
+            `;
+            return html;
+        }
+
+        function exportSelectedPDF() {
+            const sub = subjects.find(s => s.id === selectedSubjectId);
+            if (!sub) return;
+            triggerCleanPrint(buildSubjectReport(sub));
+        }
+
+        function exportAllPDF() {
+            let grandObt = 0, grandMax = 0, grandW = 0, grandWObt = 0;
+            const TH = 'border: 1px solid #374151; padding: 8px;';
+            let html = `
+                <h1 style="font-size: 22px; font-weight: bold; margin: 0 0 4px 0; color: #111;">Academic Performance Summary</h1>
+                <p style="font-size: 13px; color: #555; margin: 0 0 16px 0;">All Courses Performance Transcript</p>
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px;">
+                    <thead>
+                        <tr style="background: #111827; color: white; text-align: left;">
+                            <th style="${TH}">#</th><th style="${TH}">Course Code</th><th style="${TH}">Course Name</th>
+                            <th style="${TH}">Marks Obtained / Total</th><th style="${TH}">Weightage Logged</th><th style="${TH}">Obtained Weightage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            const TC = 'border: 1px solid #e5e7eb; padding: 8px;';
+            subjects.forEach((sub, idx) => {
+                const { weighted, obtTot, maxTot, totalWeightage } = calculateSubjectTotals(sub);
+                grandObt += obtTot; grandMax += maxTot; grandW += totalWeightage; grandWObt += weighted;
+                html += `
+                    <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+                        <td style="${TC}">${idx + 1}</td>
+                        <td style="${TC}"><strong>${sub.code}</strong></td>
+                        <td style="${TC}">${sub.name}</td>
+                        <td style="${TC}">${fmt(obtTot)} / ${fmt(maxTot)}</td>
+                        <td style="${TC}">${totalWeightage.toFixed(6) == '25.000002' ? '25.000002' : totalWeightage.toFixed(2)}% / 100%</td>
+                        <td style="${TC}"><strong>${weighted.toFixed(4)}%</strong></td>
+                    </tr>
+                `;
+            });
+            html += `
+                    <tr style="background: #e5e7eb; font-weight: bold;">
+                        <td colspan="3" style="${TD}">GRAND TOTAL</td>
+                        <td style="${TD}">${fmt(grandObt)} / ${fmt(grandMax)}</td>
+                        <td style="${TD}">${grandW.toFixed(2)}%</td>
+                        <td style="${TD}">${grandWObt.toFixed(4)}%</td>
+                    </tr>
+                </tbody></table>
+            `;
+            subjects.forEach((sub, idx) => { html += buildSubjectReport(sub, { pageBreak: true, index: idx + 1 }); });
+            triggerCleanPrint(html);
+        }
+
+        function editEvaluation(evalId) {
+            const sub = subjects.find(s => s.id === selectedSubjectId);
+            if (!sub) return;
+            const ev = sub.evaluations.find(e => e.id === evalId);
+            if (!ev) return;
+
+            openModal();
+            document.getElementById('editingEvalId').value = ev.id;
+            document.getElementById('evalModalTitle').innerText = 'Edit Assessment Entry';
+            document.getElementById('evalSubjectSelect').value = sub.id;
+            document.getElementById('evalCategorySelect').value = ev.category;
+            document.getElementById('evalWeightage').value = ev.weightage;
+
+            const isStandard = (ev.category === 'Quizzes' || ev.category === 'Assignments' || ev.category === 'Presentation' || ev.category === 'Class Participation');
+            handleCategoryChange();
+
+            if (isStandard) {
+                const numMatch = ev.label.match(/\d+/);
+                document.getElementById('evalNumberInput').value = numMatch ? numMatch[0] : '1';
+                document.getElementById('evalObtained').value = ev.score;
+                document.getElementById('evalMax').value = ev.maxScore;
+            } else if (ev.questions) {
+                const container = document.getElementById('questionsContainer');
+                container.innerHTML = '';
+                ev.questions.forEach(q => {
+                    appendQuestionRow(q.score, q.maxScore, fmt(qWeightOf(ev, q)));
+                });
+                updateQWeightSum();
+            }
+        }
+
+        function deleteEvaluation(evalId) {
+            const sub = subjects.find(s => s.id === selectedSubjectId);
+            if (!sub) return;
+            if (confirm("Are you sure you want to delete this evaluation entry?")) {
+                sub.evaluations = sub.evaluations.filter(e => e.id !== evalId);
+                saveToMemory();
+                renderDashboard();
+            }
+        }
+
+        function openSubjectModal() { document.getElementById('subjectModal').classList.remove('hidden'); }
+        function closeSubjectModal() { document.getElementById('subjectModal').classList.add('hidden'); }
+        
+        function handleSubjectSubmit(e) {
+            e.preventDefault();
+            const name = document.getElementById('newSubjectName').value.trim();
+            const code = document.getElementById('newSubjectCode').value.trim().toUpperCase() || 'COURSE';
+            const newSub = { id: 'sub_' + Date.now(), name: name, code: code, evaluations: [] };
+            subjects.push(newSub);
+            selectedSubjectId = newSub.id;
+            saveToMemory();
+            renderDashboard();
+            closeSubjectModal();
+        }
+
+        function deleteSubject(subId) {
+            if(confirm("Delete this subject?")) {
+                subjects = subjects.filter(s => s.id !== subId);
+                selectedSubjectId = subjects.length > 0 ? subjects[0].id : null;
+                saveToMemory();
+                renderDashboard();
+            }
+        }
+
+        function openModal() {
+            document.getElementById('editingEvalId').value = '';
+            document.getElementById('evalModalTitle').innerText = 'Log Assessment Marks';
+            populateSelect();
+            handleCategoryChange();
+            document.getElementById('evaluationModal').classList.remove('hidden');
+        }
+        function openModalForCat(cat) {
+            openModal();
+            document.getElementById('evalCategorySelect').value = cat;
+            handleCategoryChange();
+        }
+        function closeModal() { document.getElementById('evaluationModal').classList.add('hidden'); }
+        function populateSelect() {
+            const sel = document.getElementById('evalSubjectSelect');
+            sel.innerHTML = '';
+            subjects.forEach(s => { sel.innerHTML += `<option value="${s.id}">${s.name}</option>`; });
+        }
+
+        function handleCategoryChange() {
+            const cat = document.getElementById('evalCategorySelect').value;
+            const subId = document.getElementById('evalSubjectSelect').value;
+            const sub = subjects.find(s => s.id === subId);
+            const isStandard = (cat === 'Quizzes' || cat === 'Assignments' || cat === 'Presentation' || cat === 'Class Participation');
+            
+            document.getElementById('evalNumberContainer').classList.toggle('hidden', !isStandard);
+            document.getElementById('standardScoreInputs').classList.toggle('hidden', !isStandard);
+            document.getElementById('questionBreakdownSection').classList.toggle('hidden', isStandard);
+            
+            document.getElementById('evalNumberLabel').innerText = `${cat} Number`;
+
+            if (!document.getElementById('editingEvalId').value) {
+                if (sub && sub.code === 'FL1003' && cat === 'Assignments') {
+                    document.getElementById('evalWeightage').value = 4.166667;
+                } else if (cat === 'Quizzes') document.getElementById('evalWeightage').value = 5;
+                else if (cat === 'Assignments') document.getElementById('evalWeightage').value = 5;
+                else if (cat === 'Presentation') document.getElementById('evalWeightage').value = 7.5;
+                else if (cat === 'Class Participation') document.getElementById('evalWeightage').value = 5;
+                else if (cat === 'Final Exam') document.getElementById('evalWeightage').value = 40;
+                else document.getElementById('evalWeightage').value = 15;
+            }
+
+            if(!isStandard && document.getElementById('questionsContainer').children.length === 0) {
+                document.getElementById('questionsContainer').innerHTML = '';
+                addQuestionRow(); addQuestionRow(); addQuestionRow();
+            }
+            updateQWeightSum();
+        }
+
+        function appendQuestionRow(score = '', max = '', weight = '') {
+            const container = document.getElementById('questionsContainer');
+            const qNum = container.children.length + 1;
+            const div = document.createElement('div');
+            div.className = 'grid grid-cols-4 gap-2 text-xs items-center';
+            const inp = 'bg-gray-950 border border-gray-700 rounded px-2 py-1 text-white w-full min-w-0';
+            div.innerHTML = `
+                <span class="text-gray-400">Q${qNum}</span>
+                <input type="number" step="any" value="${score}" placeholder="Obtained" oninput="updateQWeightSum()" class="q-score ${inp}">
+                <input type="number" step="any" value="${max}" placeholder="Max" oninput="updateQWeightSum()" class="q-max ${inp}">
+                <input type="number" step="any" value="${weight}" placeholder="Weight %" oninput="updateQWeightSum()" class="q-weight ${inp}">
+            `;
+            container.appendChild(div);
+        }
+        function addQuestionRow() { appendQuestionRow(); updateQWeightSum(); }
+
+        function updateQWeightSum() {
+            const el = document.getElementById('qWeightSum');
+            if (!el) return;
+            const total = parseFloat(document.getElementById('evalWeightage').value) || 0;
+            const ws = Array.from(document.querySelectorAll('.q-weight')).map(i => i.value);
+            const filled = ws.filter(v => v !== '');
+            if (filled.length === 0) {
+                el.className = 'text-[11px] text-gray-400';
+                el.innerText = `Leave weightages blank to split ${fmt(total)}% automatically by marks.`;
+                return;
+            }
+            const sum = filled.reduce((a, v) => a + (parseFloat(v) || 0), 0);
+            const ok = Math.abs(sum - total) < 0.0001 && filled.length === ws.length;
+            el.className = 'text-[11px] ' + (ok ? 'text-green-400' : 'text-amber-400');
+            el.innerText = `Question weightage: ${fmt(sum)}% / ${fmt(total)}%` + (ok ? ' ✓' : (filled.length !== ws.length ? ' — fill every question' : ' — must equal total'));
+        }
+
+        function handleEvaluationSubmit(e) {
+            e.preventDefault();
+            const subId = document.getElementById('evalSubjectSelect').value;
+            const cat = document.getElementById('evalCategorySelect').value;
+            const weight = parseFloat(document.getElementById('evalWeightage').value) || 0;
+            const editingId = document.getElementById('editingEvalId').value;
+            const sub = subjects.find(s => s.id === subId);
+            if (!sub) return;
+
+            let targetEv = editingId ? sub.evaluations.find(e => e.id === editingId) : null;
+            if (!targetEv) {
+                targetEv = { id: 'e_' + Date.now() };
+                sub.evaluations.push(targetEv);
+            }
+
+            targetEv.category = cat;
+            targetEv.weightage = weight;
+
+            const isStandard = (cat === 'Quizzes' || cat === 'Assignments' || cat === 'Presentation' || cat === 'Class Participation');
+
+            if (isStandard) {
+                const num = document.getElementById('evalNumberInput').value || '1';
+                targetEv.label = `${cat} ${num}`;
+                targetEv.score = parseFloat(document.getElementById('evalObtained').value) || 0;
+                targetEv.maxScore = parseFloat(document.getElementById('evalMax').value) || 10;
+                delete targetEv.questions;
+            } else {
+                targetEv.label = cat;
+                let questions = [], sTot = 0, mTot = 0;
+                const scores = document.querySelectorAll('.q-score');
+                const maxes = document.querySelectorAll('.q-max');
+                const wts = document.querySelectorAll('.q-weight');
+                let rows = [];
+                scores.forEach((el, idx) => {
+                    const s = parseFloat(el.value) || 0, m = parseFloat(maxes[idx].value) || 0;
+                    const wRaw = wts[idx].value;
+                    if (m > 0) rows.push({ s, m, w: wRaw === '' ? null : (parseFloat(wRaw) || 0) });
+                });
+                const withW = rows.filter(r => r.w !== null).length;
+                if (withW > 0 && withW !== rows.length) {
+                    alert('Please enter a weightage for every question, or leave all of them blank for an automatic split.');
+                    return;
+                }
+                if (withW > 0) {
+                    const sumW = rows.reduce((a, r) => a + r.w, 0);
+                    if (Math.abs(sumW - weight) > 0.0001) {
+                        alert(`Question weightages add up to ${fmt(sumW)}% but the total weightage is ${fmt(weight)}%. Please make them equal.`);
+                        return;
+                    }
+                }
+                const totalMax = rows.reduce((a, r) => a + r.m, 0);
+                rows.forEach((r, idx) => {
+                    const qw = r.w !== null ? r.w : (totalMax > 0 ? (r.m / totalMax) * weight : 0);
+                    questions.push({ qNum: idx + 1, score: r.s, maxScore: r.m, weight: qw });
+                    sTot += r.s; mTot += r.m;
+                });
+                targetEv.score = sTot;
+                targetEv.maxScore = mTot;
+                targetEv.questions = questions;
+            }
+
+            saveToMemory();
+            renderDashboard();
+            closeModal();
+        }
+    </script>
+</body>
+</html>
